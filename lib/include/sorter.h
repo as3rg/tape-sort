@@ -34,7 +34,6 @@ namespace tape {
     /**
      * Move the head backward and read the value.
      * @throws io_exception if reading fails
-     * @throws seek_exception if seeking fails
      */
     template <typename T1>
     int32_t peek(tape<T1>& current) {
@@ -45,7 +44,6 @@ namespace tape {
     /**
      * Write the value and move the head forward.
      * @throws io_exception if writing fails
-     * @throws seek_exception if seeking fails
      */
     template <typename T1>
     void put(tape<T1>& current, const int32_t value) {
@@ -59,7 +57,6 @@ namespace tape {
      * @code current@endcode head is after the last elements put (the last element of the vector) after the call.
      *
      * @throws io_exception if writing fails
-     * @throws seek_exception if seeking fails
      */
     template <typename T>
     void vec_to_tape(const std::vector<int32_t>& vec, tape<T>& current) {
@@ -74,7 +71,6 @@ namespace tape {
      * The original ordering of the elements from the tape is reversed in the vector.<br>
      * @code source@endcode head is at the leftmost element peeked after the call.
      * @throws io_exception if reading fails
-     * @throws seek_exception if seeking fails
      */
     template <typename T>
     std::vector<int32_t> tape_to_vec(tape<T>& current, size_t size) {
@@ -175,7 +171,7 @@ namespace tape {
              tape<T1>::BIDIRECTIONAL && tape<T2>::BIDIRECTIONAL &&
              tape<T3>::BIDIRECTIONAL)
   void sort(tape<T_IN>& in, tape<T_OUT>& out, tape<T1>& tmp1, tape<T2>& tmp2,
-            tape<T3>& tmp3, size_t chunk_size = 1, Compare compare = Compare()) {
+            tape<T3>& tmp3, size_t chunk_size = 0, Compare compare = Compare()) {
     helpers::subarray_info info;
 
     while (!in.is_end()) {
