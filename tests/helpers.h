@@ -11,12 +11,12 @@
 class time_checker {
 private:
   std::chrono::steady_clock::time_point current;
+
 public:
   time_checker();
 
   int64_t checkpoint();
 };
-
 
 template <size_t N>
 std::string get_string(const std::array<int32_t, N>& data) {
@@ -24,7 +24,6 @@ std::string get_string(const std::array<int32_t, N>& data) {
   constexpr size_t size = N * sizeof(int32_t);
   return {buf_ptr, size};
 }
-
 
 template <size_t N>
 auto gen_data() {

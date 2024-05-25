@@ -4,7 +4,7 @@ time_checker::time_checker() : current(std::chrono::steady_clock::now()) {}
 
 int64_t time_checker::checkpoint() {
   const auto new_cur = std::chrono::steady_clock::now();
-  const auto diff = std::chrono::duration_cast<std::chrono::nanoseconds>( new_cur - current).count();
+  const auto diff = std::chrono::duration_cast<std::chrono::nanoseconds>(new_cur - current).count();
   current = new_cur;
   return diff;
 }

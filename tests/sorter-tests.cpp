@@ -1,6 +1,5 @@
-#include "helpers.h"
-
 #include "../utilities/include/file-guard.h"
+#include "helpers.h"
 
 constexpr size_t N = 100;
 
@@ -8,9 +7,7 @@ auto cmp = std::less<int32_t>{};
 auto rev_cmp = std::greater<int32_t>{};
 
 template <size_t MOD>
-auto mod_cmp = [](const int32_t l, const int32_t r) {
-  return (l % MOD) < (r % MOD);
-};
+auto mod_cmp = [](const int32_t l, const int32_t r) { return (l % MOD) < (r % MOD); };
 
 size_t bit_cnt(uint32_t v) {
   size_t res = 0;
@@ -21,22 +18,12 @@ size_t bit_cnt(uint32_t v) {
   return res;
 }
 
-auto bit_cnt_cmp = [](const int32_t l, const int32_t r) {
-  return bit_cnt(l) < bit_cnt(r);
-};
+auto bit_cnt_cmp = [](const int32_t l, const int32_t r) { return bit_cnt(l) < bit_cnt(r); };
 
-auto unsigned_cmp = [](const uint32_t l, const uint32_t r) {
-  return l < r;
-};
+auto unsigned_cmp = [](const uint32_t l, const uint32_t r) { return l < r; };
 
-std::vector<std::function<bool(int32_t, int32_t)>> comps{
-    cmp,
-    rev_cmp,
-    mod_cmp<2>,
-    mod_cmp<239>,
-    bit_cnt_cmp,
-    unsigned_cmp
-};
+std::vector<std::function<bool(int32_t, int32_t)>> comps{cmp,          rev_cmp,     mod_cmp<2>,
+                                                         mod_cmp<239>, bit_cnt_cmp, unsigned_cmp};
 
 template <typename T, typename Compare>
 void check_part(tape::tape<T>& src, const tape::helpers::subarray_info<Compare> info,
@@ -73,13 +60,9 @@ void split_test(SrcStream src_stream, LeftStream left_stream, RightStream right_
   auto [linfo, rinfo] = tape::helpers::split(src, left, right, compare, key, N);
   EXPECT_TRUE(src.is_begin());
 
-  check_part(left, linfo, filtered(data.begin(), N, [compare, key](int32_t v) {
-    return compare(v, key);
-  }));
+  check_part(left, linfo, filtered(data.begin(), N, [compare, key](int32_t v) { return compare(v, key); }));
 
-  check_part(right, rinfo, filtered(data.begin(), N, [compare, key](int32_t v) {
-    return !compare(v, key);
-  }));
+  check_part(right, rinfo, filtered(data.begin(), N, [compare, key](int32_t v) { return !compare(v, key); }));
 }
 
 TEST(sorter_tests, split) {
@@ -164,8 +147,8 @@ TEST(sorter_tests, sort2) {
       for (const auto& cmp : comps) {
         sort_test2(std::stringstream(), std::stringstream(), std::stringstream(), std::stringstream(),
                    std::stringstream(), chunk, cmp);
-        sort_test2(std::fstream(fin.path()), std::fstream(fout.path()), std::fstream(ftmp1.path()), std::fstream(ftmp2.path()),
-                   std::fstream(ftmp3.path()), chunk, cmp);
+        sort_test2(std::fstream(fin.path()), std::fstream(fout.path()), std::fstream(ftmp1.path()),
+                   std::fstream(ftmp2.path()), std::fstream(ftmp3.path()), chunk, cmp);
 
         sort_test2(std::stringstream(), std::stringstream(), std::fstream(ftmp1.path()), std::fstream(ftmp2.path()),
                    std::fstream(ftmp3.path()), chunk, cmp);

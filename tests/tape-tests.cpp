@@ -1,6 +1,5 @@
-#include "helpers.h"
-
 #include "../utilities/include/file-guard.h"
+#include "helpers.h"
 
 constexpr size_t N = 1000;
 constexpr size_t STEP = 31;
@@ -297,13 +296,11 @@ void check_time(time_checker& checker, const size_t target, const size_t error) 
 }
 
 TEST(tape_tests, delays) {
-  constexpr tape::delay_config target_delays{
-      .read_delay = 20'000'000ull,
-      .write_delay = 30'000'000ull,
-      .rewind_step_delay = 10'000'000ull,
-      .rewind_delay = 10'000'000ull,
-      .next_delay = 40'000'000ull
-  };
+  constexpr tape::delay_config target_delays{.read_delay = 20'000'000ull,
+                                             .write_delay = 30'000'000ull,
+                                             .rewind_step_delay = 10'000'000ull,
+                                             .rewind_delay = 10'000'000ull,
+                                             .next_delay = 40'000'000ull};
   constexpr size_t error = 5'000'000;
 
   tape::tape tp(std::stringstream(), N, target_delays);

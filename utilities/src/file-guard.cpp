@@ -13,11 +13,12 @@ file_guard::file_guard(std::filesystem::path path, const std::string& initial_da
   out.close();
 }
 
-file_guard::file_guard(file_guard&& other) noexcept: path_(std::exchange(other.path_, "")) {}
+file_guard::file_guard(file_guard&& other) noexcept : path_(std::exchange(other.path_, "")) {}
 
 file_guard& file_guard::operator=(file_guard&& other) noexcept {
-  if (this == &other)
+  if (this == &other) {
     return *this;
+  }
   std::exchange(path_, other.path_);
   return *this;
 }

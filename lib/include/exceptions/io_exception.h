@@ -11,4 +11,4 @@ namespace tape {
 
     explicit io_exception(const char* string);
   };
-} // tape
+} // namespace tape

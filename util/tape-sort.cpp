@@ -2,7 +2,6 @@
 #include "../lib/include/tape.h"
 #include "../utilities/include/file-guard.h"
 
-#include <format>
 #include <fstream>
 #include <iostream>
 
@@ -12,8 +11,9 @@ const std::string CONFIG_PATH = "config.txt";
 bool parse_delays(tape::delay_config& config) {
   std::ifstream fconfig(CONFIG_PATH);
 
-  if (!std::filesystem::exists(CONFIG_PATH))
+  if (!std::filesystem::exists(CONFIG_PATH)) {
     return true;
+  }
   if (std::filesystem::is_directory(CONFIG_PATH)) {
     std::cerr << "config file cannot be a directory" << std::endl;
     return false;
@@ -24,8 +24,9 @@ bool parse_delays(tape::delay_config& config) {
   }
   for (std::string line; std::getline(fconfig, line);) {
     std::stringstream linestream(line);
-    if (line.empty())
+    if (line.empty()) {
       continue;
+    }
     std::string key;
     size_t value;
     linestream >> key >> value;
@@ -98,8 +99,9 @@ int main(const int argc, char* argv[]) {
 
   size_t N;
   if (argc > 3) {
-    if (!get_uint_param(argv[3], N, "input tape size"))
+    if (!get_uint_param(argv[3], N, "input tape size")) {
       return 1;
+    }
   } else {
     fin.seekg(0, std::ios_base::end);
     N = fin.tellg();
@@ -112,13 +114,15 @@ int main(const int argc, char* argv[]) {
 
   size_t M = 0;
   if (argc > 4) {
-    if (!get_uint_param(argv[4], M, "memory limit"))
+    if (!get_uint_param(argv[4], M, "memory limit")) {
       return 1;
+    }
   }
 
   tape::delay_config delays{};
-  if (!parse_delays(delays))
+  if (!parse_delays(delays)) {
     return 1;
+  }
 
   size_t chunk_size = M / sizeof(int32_t);
 
@@ -129,9 +133,7 @@ int main(const int argc, char* argv[]) {
     if (N <= chunk_size) {
       sort(tin, tout);
     } else {
-      file_guard tmp1_guard(get_tmp_path()),
-                 tmp2_guard(get_tmp_path()),
-                 tmp3_guard(get_tmp_path());
+      file_guard tmp1_guard(get_tmp_path()), tmp2_guard(get_tmp_path()), tmp3_guard(get_tmp_path());
       std::fstream ftmp1(tmp1_guard.path());
       std::fstream ftmp2(tmp2_guard.path());
       std::fstream ftmp3(tmp3_guard.path());

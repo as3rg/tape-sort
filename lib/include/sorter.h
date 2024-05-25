@@ -135,8 +135,7 @@ namespace tape {
       requires(tape<TSrc>::READABLE && tape<TLeft>::WRITABLE && tape<TRight>::WRITABLE)
     std::pair<subarray_info<Compare>, subarray_info<Compare>> split(tape<TSrc>& source, tape<TLeft>& left,
                                                                     tape<TRight>& right, Compare compare,
-                                                                    const int32_t key,
-                                                                    const size_t size) {
+                                                                    const int32_t key, const size_t size) {
       subarray_info left_info(compare);
       subarray_info right_info(compare);
 
@@ -157,21 +156,19 @@ namespace tape {
      * @code peek()@endcode @code info.size()@endcode elements from @code current@endcode and
      * @code put()@endcode them in @code out@endcode in the sorted order. <br>
      * The ordering is defined by the @code compare@endcode. <br>
-     * @code tmp1@endcode and @code tmp2@endcode data before the head and the head position are not changed after the call.
-     * The data after the head can be lost.<br>
+     * @code tmp1@endcode and @code tmp2@endcode data before the head and the head position are not changed after the
+     * call. The data after the head can be lost.<br>
      * @code out@endcode head is after the last elements put after the call.<br>
      * If @code info.size() <= chunk_size@endcode, the sorting is performed in memory. Otherwise, recursively.
      * @throws io_exception if reading or writing to some of the tapes fails
      */
     template <typename TOut, typename T1, typename T2, typename T3, typename Compare>
-      requires(tape<TOut>::WRITABLE &&
-               tape<T1>::BIDIRECTIONAL && tape<T2>::BIDIRECTIONAL &&
-               tape<T3>::BIDIRECTIONAL)
+      requires(tape<TOut>::WRITABLE && tape<T1>::BIDIRECTIONAL && tape<T2>::BIDIRECTIONAL && tape<T3>::BIDIRECTIONAL)
     void sort_impl(tape<TOut>& out, tape<T1>& current, tape<T2>& tmp1, tape<T3>& tmp2,
-                   const subarray_info<Compare>& info, const size_t chunk_size,
-                   Compare compare) {
-      if (info.size() == 0)
+                   const subarray_info<Compare>& info, const size_t chunk_size, Compare compare) {
+      if (info.size() == 0) {
         return;
+      }
       if (info.equal()) {
         for (size_t i = 0; i < info.size(); ++i) {
           helpers::put(out, helpers::peek(current));
@@ -203,8 +200,7 @@ namespace tape {
    * @param compare comparator which defines the ordering
    * @throws io_exception if reading or writing to some of the tapes fails
    */
-  template <typename TIn, typename TOut,
-            typename Compare = std::less<int32_t>>
+  template <typename TIn, typename TOut, typename Compare = std::less<int32_t>>
     requires(tape<TIn>::READABLE && tape<TOut>::WRITABLE)
   void sort(tape<TIn>& in, tape<TOut>& out, Compare compare = Compare()) {
     std::vector<int32_t> vec;
@@ -225,8 +221,8 @@ namespace tape {
   /**
    * Put elements from @code in@endcode to @code out@endcode in the sorted order. <br>
    * @code in@endcode is not changed after the call.<br>
-   * @code tmp1@endcode, @code tmp2@endcode and @code tmp3@endcode data before the head and the head position are not changed after the call.
-   * The data after the head can be lost.<br>
+   * @code tmp1@endcode, @code tmp2@endcode and @code tmp3@endcode data before the head and the head position are not
+   * changed after the call. The data after the head can be lost.<br>
    * @code out@endcode head is after the last elements put after the call.<br>
    * The function uses no more than @code chunk_size * sizeof(int32_t)@endcode bytes of allocated memory.<br>
    * The sort is not stable.
@@ -243,13 +239,11 @@ namespace tape {
    * @param compare comparator which defines the ordering
    * @throws io_exception if reading or writing to some of the tapes fails
    */
-  template <typename TIn, typename TOut, typename T1, typename T2, typename T3,
-            typename Compare = std::less<int32_t>>
-    requires(tape<TIn>::READABLE && tape<TOut>::WRITABLE &&
-             tape<T1>::BIDIRECTIONAL && tape<T2>::BIDIRECTIONAL &&
+  template <typename TIn, typename TOut, typename T1, typename T2, typename T3, typename Compare = std::less<int32_t>>
+    requires(tape<TIn>::READABLE && tape<TOut>::WRITABLE && tape<T1>::BIDIRECTIONAL && tape<T2>::BIDIRECTIONAL &&
              tape<T3>::BIDIRECTIONAL)
-  void sort(tape<TIn>& in, tape<TOut>& out, tape<T1>& tmp1, tape<T2>& tmp2,
-            tape<T3>& tmp3, size_t chunk_size = 0, Compare compare = Compare()) {
+  void sort(tape<TIn>& in, tape<TOut>& out, tape<T1>& tmp1, tape<T2>& tmp2, tape<T3>& tmp3, size_t chunk_size = 0,
+            Compare compare = Compare()) {
     helpers::subarray_info<Compare> info(compare);
 
     while (!in.is_end()) {

@@ -1,13 +1,12 @@
 #pragma once
 
+#include "exceptions/io_exception.h"
+
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <limits>
 #include <thread>
-
-#include "exceptions/io_exception.h"
-
-#include <algorithm>
 #include <utility>
 
 namespace tape {
@@ -94,7 +93,8 @@ namespace tape {
     delay_config delays;
 
   public:
-    tape() noexcept(std::is_nothrow_default_constructible_v<Stream>) requires(std::is_default_constructible_v<Stream>)
+    tape() noexcept(std::is_nothrow_default_constructible_v<Stream>)
+      requires(std::is_default_constructible_v<Stream>)
     = default;
 
     /**
@@ -106,8 +106,8 @@ namespace tape {
      * @throws io_exception if extending fails
      */
     tape(Stream&& stream, const size_t size,
-         const delay_config& delays) noexcept(std::is_nothrow_move_constructible_v<Stream>) : tape(
-        std::move(stream), size, 0, 0, delays) {}
+         const delay_config& delays) noexcept(std::is_nothrow_move_constructible_v<Stream>)
+        : tape(std::move(stream), size, 0, 0, delays) {}
 
     /**
      * Create the tape from the given stream.
@@ -119,14 +119,13 @@ namespace tape {
      * @throws std::invalid_argument if pos > size
      * @throws io_exception if extending fails
      */
-    tape(Stream&& stream, const size_t size, const size_t pos = 0,
-         const size_t stream_offset = 0,
+    tape(Stream&& stream, const size_t size, const size_t pos = 0, const size_t stream_offset = 0,
          const delay_config& delays = {}) noexcept(std::is_nothrow_move_constructible_v<Stream>)
-      : pos(pos),
-        size(size),
-        stream_offset(stream_offset),
-        stream(std::move(stream)),
-        delays(delays) {
+        : pos(pos),
+          size(size),
+          stream_offset(stream_offset),
+          stream(std::move(stream)),
+          delays(delays) {
       if (pos > size) {
         throw std::invalid_argument("pos <= size expected");
       }
@@ -138,18 +137,19 @@ namespace tape {
     tape(const tape& other) = delete;
 
     tape(tape&& other) noexcept(std::is_nothrow_move_constructible_v<Stream>)
-      : pos(std::exchange(other.pos, 0)),
-        size(std::exchange(other.size, 0)),
-        stream_offset(std::exchange(other.stream_offset, 0)),
-        stream(std::move(other.stream)),
-        consistent(std::exchange(other.consistent, false)),
-        buffer(other.buffer),
-        delays(std::exchange(other.delays, {})) {}
+        : pos(std::exchange(other.pos, 0)),
+          size(std::exchange(other.size, 0)),
+          stream_offset(std::exchange(other.stream_offset, 0)),
+          stream(std::move(other.stream)),
+          consistent(std::exchange(other.consistent, false)),
+          buffer(other.buffer),
+          delays(std::exchange(other.delays, {})) {}
 
     tape& operator=(const tape& other) = delete;
 
-    tape& operator=(tape&& other) noexcept(std::is_nothrow_move_assignable_v<Stream>) requires(std::is_move_assignable_v
-      <Stream>) {
+    tape& operator=(tape&& other) noexcept(std::is_nothrow_move_assignable_v<Stream>)
+      requires(std::is_move_assignable_v<Stream>)
+    {
       if (this != &other) {
         pos = std::exchange(other.pos, 0);
         size = std::exchange(other.size, 0);
@@ -194,7 +194,8 @@ namespace tape {
      * @throws io_exception if reading fails
      */
     value_t get()
-      requires(READABLE) {
+      requires(READABLE)
+    {
       assert(!is_end());
       if (!consistent) {
         buffer = get_value();
@@ -211,7 +212,8 @@ namespace tape {
      * @throws io_exception if setting fails
      */
     void set(const value_t new_value)
-      requires(WRITABLE) {
+      requires(WRITABLE)
+    {
       assert(!is_end());
 
       consistent = false;
@@ -250,7 +252,9 @@ namespace tape {
      * Flush the stream.
      * @throws io_exception if flushing fails.
      */
-    void flush() requires(WRITABLE) {
+    void flush()
+      requires(WRITABLE)
+    {
       stream.flush();
       if (!stream) {
         throw io_exception("error flushing");
@@ -278,8 +282,9 @@ namespace tape {
       return result;
     }
 
-    friend void swap(tape& lhs, tape& rhs) noexcept(std::is_nothrow_swappable_v<Stream>) requires (std::is_swappable_v<
-      Stream>) {
+    friend void swap(tape& lhs, tape& rhs) noexcept(std::is_nothrow_swappable_v<Stream>)
+      requires(std::is_swappable_v<Stream>)
+    {
       using std::swap;
       swap(lhs.pos, rhs.pos);
       swap(lhs.size, rhs.size);
@@ -318,7 +323,9 @@ namespace tape {
      * Read the value from the current head position. Does not move head.
      * @throws io_exception if reading fails
      */
-    value_t get_value() requires(READABLE) {
+    value_t get_value()
+      requires(READABLE)
+    {
       stream.clear();
       stream.seekg(pos * VALUE_SIZE + stream_offset, std::ios_base::beg);
 
@@ -336,7 +343,9 @@ namespace tape {
      * Write the @code value@endcode to the current head position. Does not move head.
      * @throws io_exception if setting fails
      */
-    void set_value(const value_t value) requires(WRITABLE) {
+    void set_value(const value_t value)
+      requires(WRITABLE)
+    {
       stream.clear();
       stream.seekp(pos * VALUE_SIZE + stream_offset, std::ios_base::beg);
       stream.write(reinterpret_cast<const char*>(&value), VALUE_SIZE);
@@ -350,8 +359,9 @@ namespace tape {
      * Emulates delay in @code constant_delay@endcode ns
      */
     static void delay(const size_t constant_delay) {
-      if (constant_delay == 0)
+      if (constant_delay == 0) {
         return;
+      }
       const std::chrono::nanoseconds timespan(constant_delay);
       std::this_thread::sleep_for(timespan);
     }
@@ -359,8 +369,7 @@ namespace tape {
     /**
      * Emulates delay in @code min(MAX_SIZE_T, constant_delay + step_delay * steps)@endcode ns.
      */
-    static void delay(const size_t constant_delay, const size_t step_delay,
-                      const size_t steps) {
+    static void delay(const size_t constant_delay, const size_t step_delay, const size_t steps) {
       size_t result_delay = step_delay * steps;
       if (steps != 0 && result_delay / steps != step_delay) {
         result_delay = MAX_SIZE_T;
