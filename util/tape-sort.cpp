@@ -10,8 +10,10 @@ const std::string CALL_FORMAT = "tape-sort <input-file> <output-file> [input-tap
 const std::string CONFIG_PATH = "config.txt";
 
 bool parse_delays(tape::delay_config& config) {
-  if (!std::filesystem::exists(CONFIG_PATH)) return true;
   std::ifstream fconfig(CONFIG_PATH);
+
+  if (!std::filesystem::exists(CONFIG_PATH))
+    return true;
   if (std::filesystem::is_directory(CONFIG_PATH)) {
     std::cerr << "config file cannot be a directory" << std::endl;
     return false;
@@ -22,7 +24,8 @@ bool parse_delays(tape::delay_config& config) {
   }
   for (std::string line; std::getline(fconfig, line);) {
     std::stringstream linestream(line);
-    if (line.empty()) continue;
+    if (line.empty())
+      continue;
     std::string key;
     size_t value;
     linestream >> key >> value;
