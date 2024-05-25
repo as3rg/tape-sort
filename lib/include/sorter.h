@@ -92,6 +92,7 @@ namespace tape {
      *
      * @return @code std::pair@endcode of the @code subarray_info@endcode of the elements
      * put in @code left@endcode and @code right@endcode
+     * @throws io_exception if reading or writing to some of the tapes fails
      */
     template <typename T1, typename T2, typename T3, typename Compare>
     std::pair<subarray_info, subarray_info> split(tape<T1>& source, tape<T2>& left,
@@ -115,12 +116,14 @@ namespace tape {
     }
 
     /**
-     * Put @code info.size()@endcode elements from @code current@endcode to @code out@endcode in the sorted order. <br>
+     * @code peek()@endcode @code info.size()@endcode elements from @code current@endcode and
+     * @code put()@endcode them in @code out@endcode in the sorted order. <br>
      * The ordering is defined by the @code compare@endcode. <br>
-     * @code current@endcode head is at the leftmost of @code info.size()@endcode elements after the call. <br>
-     * @code tmp1@endcode and @code tmp2@endcode are not changed after the call.<br>
+     * @code tmp1@endcode and @code tmp2@endcode data before the head and the head position are not changed after the call.
+     * The data after the head can be lost.<br>
      * @code out@endcode head is after the last elements put after the call.<br>
      * If @code info.size() <= chunk_size@endcode, the sorting is performed in memory. Otherwise, recursively.
+     * @throws io_exception if reading or writing to some of the tapes fails
      */
     template <typename T1, typename T2, typename T3, typename T4, typename Compare>
     void sort_impl(tape<T4>& out, tape<T1>& current, tape<T2>& tmp1, tape<T3>& tmp2,
@@ -154,16 +157,53 @@ namespace tape {
 
   /**
    * Put elements from @code in@endcode to @code out@endcode in the sorted order. <br>
-   * @code in@endcode, @code tmp1@endcode, @code tmp2@endcode and @code tmp3@endcode are not changed after the call.<br>
+   * @code in@endcode is not changed after the call.<br>
    * @code out@endcode head is after the last elements put after the call.<br>
+   * The function uses as much allocated memory as the @code in@endcode data occupies.
    *
-   * @param in tape with elements to sort. Can be read-only
-   * @param out tape to write the sorted elements. Can be write-only
-   * @param tmp1 temporary tape. Must be readable and writable
+   * @param in tape with elements to sort. Can be read-only. The head should be at the beginning of the data
+   * @param out tape to write the sorted elements. Can be write-only. The head should be at the first position to write
+   * @param compare comparator which defines the ordering
+   * @throws io_exception if reading or writing to some of the tapes fails
+   */
+  template <typename T_IN, typename T_OUT,
+            typename Compare = std::less<int32_t>>
+    requires(tape<T_IN>::READABLE && tape<T_OUT>::WRITABLE)
+  void sort(tape<T_IN>& in, tape<T_OUT>& out, Compare compare = Compare()) {
+    std::vector<int32_t> vec;
+    size_t size = 0;
+    while (!in.is_end()) {
+      const int32_t value = in.get();
+      in.next();
+      vec.emplace_back(value);
+      ++size;
+    }
+
+    in.seek(-size);
+
+    std::sort(vec.begin(), vec.end(), compare);
+    vec_to_tape(vec, out);
+  }
+
+  /**
+   * Put elements from @code in@endcode to @code out@endcode in the sorted order. <br>
+   * @code in@endcode is not changed after the call.<br>
+   * @code tmp1@endcode, @code tmp2@endcode and @code tmp3@endcode data before the head and the head position are not changed after the call.
+   * The data after the head can be lost.<br>
+   * @code out@endcode head is after the last elements put after the call.<br>
+   * The function uses no more than @code chunk_size * sizeof(int32_t)@endcode bytes of allocated memory.
+   *
+   * @param in tape with elements to sort. Can be read-only. The head should be at the beginning of the data
+   * @param out tape to write the sorted elements. Can be write-only. The head should be at the first position to write
+   * @param tmp1 temporary tape. Must be readable and writable.
+   * Should have at least as much space after the head as the size of the sorted data
    * @param tmp2 temporary tape. Must be readable and writable
+   * Should have at least as much space after the head as the size of the sorted data
    * @param tmp3 temporary tape. Must be readable and writable
+   * Should have at least as much space after the head as the size of the sorted data
    * @param chunk_size the maximum number of elements that can be stored in memory
    * @param compare comparator which defines the ordering
+   * @throws io_exception if reading or writing to some of the tapes fails
    */
   template <typename T_IN, typename T_OUT, typename T1, typename T2, typename T3,
             typename Compare = std::less<int32_t>>
@@ -181,7 +221,7 @@ namespace tape {
       info.update(value);
     }
 
-    in.seek_impl(-info.size());
+    in.seek(-info.size());
     helpers::sort_impl(out, tmp1, tmp2, tmp3, info, chunk_size, compare);
   }
 } // namespace tape

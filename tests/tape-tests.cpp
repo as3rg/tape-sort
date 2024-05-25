@@ -1,77 +1,9 @@
-#include "../lib/include/sorter.h"
-#include "../lib/include/tape.h"
+#include "helpers.h"
 
-#include <filesystem>
-#include <utility>
 #include <gtest/gtest.h>
 
-#include <random>
-
-class file_guard {
-public:
-  std::filesystem::path path;
-
-  explicit file_guard(std::filesystem::path path) : path(std::move(path)) {}
-
-  explicit file_guard(const std::filesystem::path& path, const std::string& data) : file_guard(path) {
-    std::ofstream out(path);
-    out.write(data.data(), data.size());
-    out.close();
-  }
-
-  [[nodiscard]] bool check_equal(const std::string& data) const {
-    std::ifstream in(path);
-    std::vector<char> vec(data.size(), 0);
-    in.read(vec.data(), vec.size());
-    return memcmp(data.data(), vec.data(), data.size()) == 0;
-  }
-
-  ~file_guard() noexcept(false) {
-    remove(path);
-  }
-};
-
-constexpr std::string tmpdir = "/tmp/";
-
-template <size_t N>
-constexpr std::array<int32_t, N> gen_data() {
-  static std::mt19937 gen(std::random_device{}());
-  static std::uniform_int_distribution<> distribution;
-
-  std::array<int32_t, N> data{};
-  for (int32_t i = 0; i < N; ++i) {
-    data[i] = distribution(gen);
-  }
-  return data;
-}
-
 constexpr size_t N = 1000;
-auto data = gen_data<N>();
-
-template <typename Stream, size_t N>
-void expect_equals(tape::tape<Stream>& tp, const std::array<int32_t, N>& data) {
-  EXPECT_TRUE(tp.is_end());
-  for (int32_t i = N; i--;) {
-    EXPECT_EQ(data[i], tape::helpers::peek(tp));
-  }
-  EXPECT_TRUE(tp.is_begin());
-}
-
-template <typename Stream, size_t N>
-void fill(tape::tape<Stream>& tp, const std::array<int32_t, N>& data) {
-  EXPECT_TRUE(tp.is_begin());
-  for (int32_t i = 0; i < N; ++i) {
-    tape::helpers::put(tp, data[i]);
-  }
-  EXPECT_TRUE(tp.is_end());
-}
-
-template <size_t N>
-std::string get_string(const std::array<int32_t, N>& data) {
-  const auto* buf_ptr = reinterpret_cast<const char*>(data.data());
-  constexpr size_t size = N * sizeof(int32_t);
-  return {buf_ptr, size};
-}
+constexpr size_t STEP = 31;
 
 TEST(tape_tests, readable_writable) {
   {
@@ -117,9 +49,9 @@ TEST(tape_tests, readable_writable) {
 }
 
 template <typename Stream>
-void beg_end_test(Stream stream, const size_t n) {
-  tape::tape tp(std::move(stream), N);
-  for (size_t i = 0; i < n; ++i) {
+void beg_end_test(Stream stream, const size_t n, const size_t pos = 0) {
+  tape::tape tp(std::move(stream), n, pos);
+  for (size_t i = pos; i < n; ++i) {
     EXPECT_EQ(tp.is_begin(), i == 0);
     EXPECT_FALSE(tp.is_end());
     tp.next();
@@ -139,80 +71,100 @@ void beg_end_test(Stream stream, const size_t n) {
 }
 
 TEST(tape_tests, begin_end) {
-  beg_end_test(std::stringstream(), N);
-  beg_end_test(std::ostringstream(), N);
+  for (size_t pos = 0; pos < N; pos += STEP) {
+    auto [data, str] = gen_data_pair<N>();
+    beg_end_test(std::stringstream(str), N, pos);
+    beg_end_test(std::ostringstream(str), N, pos);
+    beg_end_test(std::istringstream(str), N, pos);
+  }
 
-  // filestreams
-  const file_guard file_guard(tmpdir + "tape_beg_end.txt", "");
-  beg_end_test(std::fstream(file_guard.path), N);
-  beg_end_test(std::ofstream(file_guard.path), N);
+  for (size_t pos = 0; pos < N; pos += STEP) {
+    auto [data, str] = gen_data_pair<N>();
+    const file_guard file_guard(get_file_name(), str);
+    beg_end_test(std::fstream(file_guard.path), N, pos);
+    beg_end_test(std::ofstream(file_guard.path), N, pos);
+    beg_end_test(std::ifstream(file_guard.path), N, pos);
+  }
 }
 
 template <typename Stream, size_t N>
-void getting_test(Stream stream, const std::array<int32_t, N>& data) {
-  tape::tape tp(std::move(stream), N, N);
-  expect_equals(tp, data);
+void pos_test(Stream stream, size_t pos, const std::array<int32_t, N>& data) {
+  tape::tape tp(std::move(stream), N, pos);
+  EXPECT_EQ(tp.get(), data[pos]);
+}
+
+TEST(tape_tests, initial_pos) {
+  auto [data, str] = gen_data_pair<N>();
+  const file_guard file_guard(get_file_name(), str);
+  for (size_t pos = 0; pos < N; ++pos) {
+    pos_test(std::stringstream(str), pos, data);
+    pos_test(std::istringstream(str), pos, data);
+    pos_test(std::fstream(file_guard.path), pos, data);
+    pos_test(std::ifstream(file_guard.path), pos, data);
+  }
+}
+
+template <typename Stream, size_t N>
+void offset_test(Stream stream, size_t offset, const std::array<int32_t, N>& data) {
+  const size_t size = N - offset;
+  tape::tape tp(std::move(stream), size, size, offset * sizeof(int32_t));
+  expect_equals(tp, data, offset, size);
+}
+
+TEST(tape_tests, offset) {
+  auto [data, str] = gen_data_pair<N>();
+  const file_guard file_guard(get_file_name(), str);
+  for (size_t offset = 0; offset < N; offset += STEP) {
+    offset_test(std::stringstream(str), offset, data);
+    offset_test(std::istringstream(str), offset, data);
+    offset_test(std::fstream(file_guard.path), offset, data);
+    offset_test(std::ifstream(file_guard.path), offset, data);
+  }
+}
+
+template <typename StringStream, typename FileStream>
+void get_test() {
+  {
+    auto [data, str] = gen_data_pair<N>();
+    tape::tape tp(StringStream(str), N, N);
+    expect_equals(tp, data);
+  }
+
+  {
+    auto [data, str] = gen_data_pair<N>();
+    const file_guard file_guard(get_file_name(), str);
+    tape::tape tp(FileStream(file_guard.path), N, N);
+    expect_equals(tp, data);
+  }
 }
 
 TEST(tape_tests, get) {
-  // stringstreams
-  auto str = get_string(data);
-  {
-    std::stringstream stream(str);
-    getting_test(std::move(stream), data);
-  }
-  {
-    std::istringstream stream(str);
-    getting_test(std::move(stream), data);
-  }
-
-  // filestreams
-  file_guard file_guard(tmpdir + "tape_get.txt", str);
-  {
-    std::fstream stream(file_guard.path);
-    getting_test(std::move(stream), data);
-  }
-  {
-    std::ifstream stream(file_guard.path);
-    getting_test(std::move(stream), data);
-  }
+  get_test<std::stringstream, std::fstream>();
+  get_test<std::istringstream, std::ifstream>();
 }
 
-template <typename Stream, size_t N>
-void setting_test(Stream& stream, const std::array<int32_t, N>& data) {
-  tape::tape tp(std::move(stream), N);
-  fill(tp, data);
-  stream = tp.release();
+template <typename StringStream, typename FileStream>
+void set_test() {
+  {
+    auto [data, str] = gen_data_pair<N>();
+    tape::tape tp(StringStream(), N);
+    fill(tp, data);
+    EXPECT_EQ(str, tp.release().str());
+  }
+
+  {
+    auto [data, str] = gen_data_pair<N>();
+    const file_guard file_guard(get_file_name(), str);
+    tape::tape tp(FileStream(file_guard.path), N);
+    fill(tp, data);
+    tp.release();
+    expect_equals(file_guard.path, data);
+  }
 }
 
 TEST(tape_tests, set) {
-  // stringstreams
-  auto str = get_string(data);
-  {
-    std::stringstream stream;
-    setting_test(stream, data);
-    EXPECT_EQ(str, stream.str());
-  }
-  {
-    std::ostringstream stream;
-    setting_test(stream, data);
-    EXPECT_EQ(str, stream.str());
-  }
-
-  // filestreams
-  file_guard file_guard(tmpdir + "tape_set.txt", str);
-  {
-    std::fstream stream(file_guard.path);
-    setting_test(stream, data);
-    stream.close();
-    EXPECT_TRUE(file_guard.check_equal(str));
-  }
-  {
-    std::ofstream stream(file_guard.path);
-    setting_test(stream, data);
-    stream.close();
-    EXPECT_TRUE(file_guard.check_equal(str));
-  }
+  set_test<std::stringstream, std::fstream>();
+  set_test<std::ostringstream, std::ofstream>();
 }
 
 TEST(tape_tests, swap) {
@@ -282,15 +234,17 @@ void seek_by_one(tape::tape<Stream>& tp, ptrdiff_t diff) {
   }
 }
 
-template <typename Stream>
-void random_access_test(tape::tape<Stream>& tp) {
+template <size_t N, typename Stream>
+void random_access_test(Stream stream, size_t pos) {
+  tape::tape tp(std::move(stream), N, pos);
+
   std::array<int32_t, N> data{};
   std::mt19937 gen(std::random_device{}());
   std::uniform_int_distribution<> index_distribution(0, N - 1);
   std::uniform_int_distribution<> value_distribution;
   std::uniform_int_distribution<> bool_distribution(0, 1);
 
-  size_t index = 0;
+  size_t index = pos;
   for (size_t i = 0; i < 10000; ++i) {
     const size_t new_index = index_distribution(gen);
 
@@ -312,20 +266,17 @@ void random_access_test(tape::tape<Stream>& tp) {
 }
 
 TEST(tape_tests, random_access) {
-  {
-    tape::tape tp(std::stringstream(), N);
-    random_access_test(tp);
-  }
-  {
-    const file_guard file_guard(tmpdir + "tape_ra.txt", "");
-    tape::tape tp(std::fstream(file_guard.path), N);
-    random_access_test(tp);
+  for (size_t pos = 0; pos < N; pos += STEP) {
+    random_access_test<N>(std::stringstream(), pos);
+
+    const file_guard file_guard(get_file_name(), "");
+    random_access_test<N>(std::fstream(file_guard.path), pos);
   }
 }
 
 TEST(tape_tests, file_close_and_open) {
-  auto data = gen_data<N>();
-  const file_guard file_guard(tmpdir + "tape_cl_op.txt");
+  auto [data, str] = gen_data_pair<N>();
+  const file_guard file_guard(get_file_name());
   {
     tape::tape tp(std::ofstream(file_guard.path), N);
     fill(tp, data);
@@ -339,8 +290,40 @@ TEST(tape_tests, file_close_and_open) {
   }
 }
 
-//todo offset tests
-//todo position tests
-//todo extending tests
-//todo seek and next tests
-//todo time tests
+void check_time(time_checker& checker, const size_t target, const size_t error) {
+  const int64_t dur = checker.checkpoint();
+  ASSERT_GE(dur, target);
+  ASSERT_LE(dur, target + error);
+}
+
+TEST(tape_tests, delays) {
+  constexpr tape::delay_config target_delays{
+      .read_delay = 20'000'000ull,
+      .write_delay = 30'000'000ull,
+      .rewind_step_delay = 10'000'000ull,
+      .rewind_delay = 10'000'000ull,
+      .next_delay = 40'000'000ull
+  };
+  constexpr size_t error = 5'000'000;
+
+  tape::tape tp(std::stringstream(), N, target_delays);
+
+  time_checker checker;
+  for (int64_t i = 0; i < 20; ++i) {
+    tp.get();
+    check_time(checker, target_delays.read_delay, error);
+
+    tp.set(0);
+    check_time(checker, target_delays.write_delay, error);
+
+    tp.next();
+    check_time(checker, target_delays.next_delay, error);
+    tp.prev();
+    check_time(checker, target_delays.next_delay, error);
+
+    tp.seek(i);
+    check_time(checker, target_delays.rewind_delay + target_delays.rewind_step_delay * i, error);
+    tp.seek(-i);
+    check_time(checker, target_delays.rewind_delay + target_delays.rewind_step_delay * i, error);
+  }
+}

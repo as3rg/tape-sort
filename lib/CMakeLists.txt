@@ -3,7 +3,7 @@ project(tape-lib)
 
 set(CMAKE_CXX_STANDARD 23)
 
-file(GLOB_RECURSE HEADERS include/*)
-file(GLOB_RECURSE SOURCES src/*)
+file(GLOB_RECURSE HEADERS include/*.h)
+file(GLOB_RECURSE SOURCES src/*.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${HEADERS} ${SOURCES})

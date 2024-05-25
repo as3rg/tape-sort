@@ -12,6 +12,41 @@
 
 namespace tape {
   /**
+   * Config for delay emulation.
+   */
+  class delay_config {
+  public:
+    /**
+     * Delay in ns of the reading operations.
+     */
+    size_t read_delay = 0;
+
+    /**
+     * Delay in ns of the writing operations.
+     */
+    size_t write_delay = 0;
+
+    /**
+     * Delay in ns of a step of the rewinding operations.<br>
+     * Resulting delay of the rewinding operation is @code rewind_delay + rewind_step_delay * abs(diff)@endcode,
+     * where @code diff@endcode is the rewind width (count of steps).
+     */
+    size_t rewind_step_delay = 0;
+
+    /**
+     * Constant delay in ns of rewinding operations.<br>
+     * Resulting delay of the rewinding operation is @code rewind_delay + rewind_step_delay * abs(diff)@endcode,
+     * where @code diff@endcode is the rewind width.
+     */
+    size_t rewind_delay = 0;
+
+    /**
+     * Delay in ns to move the tape head to the next/previous position.
+     */
+    size_t next_delay = 0;
+  };
+
+  /**
    * Stream-based <a href="https://en.wikipedia.org/wiki/Tape_drive">tape</a> emulator.
    * @tparam Stream Stream type. Should be derived either from std::istream or std::ostream.
    * Should be seekable.<br>
@@ -21,41 +56,6 @@ namespace tape {
   template <typename Stream>
   class tape {
   public:
-    /**
-     * Config for delay emulation.
-     */
-    class delay_config {
-    public:
-      /**
-       * Delay in ns of the reading operations.
-       */
-      size_t read_delay = 0;
-
-      /**
-       * Delay in ns of the writing operations.
-       */
-      size_t write_delay = 0;
-
-      /**
-       * Delay in ns of a step of the rewinding operations.<br>
-       * Resulting delay of the rewinding operation is @code rewind_delay + rewind_step_delay * abs(diff)@endcode,
-       * where @code diff@endcode is the rewind width (count of steps).
-       */
-      size_t rewind_step_delay = 0;
-
-      /**
-       * Constant delay in ns of rewinding operations.<br>
-       * Resulting delay of the rewinding operation is @code rewind_delay + rewind_step_delay * abs(diff)@endcode,
-       * where @code diff@endcode is the rewind width.
-       */
-      size_t rewind_delay = 0;
-
-      /**
-       * Delay in ns to move the tape head to the next/previous position.
-       */
-      size_t next_delay = 0;
-    };
-
     /**
      * Indicates if the current tape can be used to read.
      */
@@ -96,6 +96,18 @@ namespace tape {
   public:
     tape() noexcept(std::is_nothrow_default_constructible_v<Stream>) requires(std::is_default_constructible_v<Stream>)
     = default;
+
+    /**
+     * Create the tape from the given stream.
+     * @param stream target stream
+     * @param size size of the tape
+     * @param delays config that defines emulation of operation delays
+     * @throws std::invalid_argument if pos > size
+     * @throws io_exception if extending fails
+     */
+    tape(Stream&& stream, const size_t size,
+         const delay_config& delays) noexcept(std::is_nothrow_move_constructible_v<Stream>) : tape(
+        std::move(stream), size, 0, 0, delays) {}
 
     /**
      * Create the tape from the given stream.
@@ -238,7 +250,7 @@ namespace tape {
      * Flush the stream.
      * @throws io_exception if flushing fails.
      */
-    void flush() {
+    void flush() requires(WRITABLE) {
       stream.flush();
       if (!stream) {
         throw io_exception("error flushing");
