@@ -8,17 +8,6 @@
 #include <filesystem>
 #include <random>
 
-class file_guard {
-public:
-  const std::filesystem::path path;
-
-  explicit file_guard(std::filesystem::path path);
-
-  explicit file_guard(const std::filesystem::path& path, const std::string& initial_data);
-
-  ~file_guard();
-};
-
 class time_checker {
 private:
   std::chrono::steady_clock::time_point current;

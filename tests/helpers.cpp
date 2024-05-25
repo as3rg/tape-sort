@@ -1,24 +1,5 @@
 #include "helpers.h"
 
-file_guard::file_guard(std::filesystem::path path): path(std::move(path)) {
-  if (this->path.has_relative_path()) {
-    create_directories(this->path.parent_path());
-  }
-}
-
-file_guard::file_guard(const std::filesystem::path& path, const std::string& initial_data): file_guard(path) {
-  std::ofstream out(path);
-  out.write(initial_data.data(), initial_data.size());
-  out.close();
-}
-
-file_guard::~file_guard() {
-  std::error_code ec;
-  if (!remove(path, ec)) {
-    std::cerr << "error deleting temporary file " << path << ": " << ec << std::endl;
-  }
-}
-
 time_checker::time_checker() : current(std::chrono::steady_clock::now()) {}
 
 int64_t time_checker::checkpoint() {

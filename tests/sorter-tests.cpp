@@ -1,5 +1,7 @@
 #include "helpers.h"
 
+#include "../utilities/include/file-guard.h"
+
 constexpr size_t N = 100;
 
 auto cmp = std::less<int32_t>{};
@@ -81,17 +83,17 @@ void split_test(SrcStream src_stream, LeftStream left_stream, RightStream right_
 }
 
 TEST(sorter_tests, split) {
-  const file_guard fout(get_file_name("out"), "");
-  const file_guard fleft(get_file_name("left"), "");
-  const file_guard fright(get_file_name("right"), "");
+  const file_guard fout(get_file_name("out"));
+  const file_guard fleft(get_file_name("left"));
+  const file_guard fright(get_file_name("right"));
 
   for (size_t i = 0; i < 10; ++i) {
     for (const auto& cmp : comps) {
       split_test(std::stringstream(), std::stringstream(), std::stringstream(), cmp);
-      split_test(std::fstream(fout.path), std::fstream(fleft.path), std::fstream(fright.path), cmp);
+      split_test(std::fstream(fout.path()), std::fstream(fleft.path()), std::fstream(fright.path()), cmp);
 
-      split_test(std::fstream(fout.path), std::stringstream(), std::stringstream(), cmp);
-      split_test(std::stringstream(), std::fstream(fleft.path), std::fstream(fright.path), cmp);
+      split_test(std::fstream(fout.path()), std::stringstream(), std::stringstream(), cmp);
+      split_test(std::stringstream(), std::fstream(fleft.path()), std::fstream(fright.path()), cmp);
     }
   }
 }
@@ -120,16 +122,16 @@ void sort_test1(TIn in_stream, TOut out_stream, Compare compare) {
 }
 
 TEST(sorter_tests, sort1) {
-  const file_guard fout(get_file_name("out"), "");
-  const file_guard fin(get_file_name("in"), "");
+  const file_guard fout(get_file_name("out"));
+  const file_guard fin(get_file_name("in"));
 
   for (size_t i = 0; i < 10; ++i) {
     for (const auto& cmp : comps) {
       sort_test1(std::stringstream(), std::stringstream(), cmp);
-      sort_test1(std::fstream(fin.path), std::fstream(fout.path), cmp);
+      sort_test1(std::fstream(fin.path()), std::fstream(fout.path()), cmp);
 
-      sort_test1(std::fstream(fin.path), std::stringstream(), cmp);
-      sort_test1(std::stringstream(), std::fstream(fout.path), cmp);
+      sort_test1(std::fstream(fin.path()), std::stringstream(), cmp);
+      sort_test1(std::stringstream(), std::fstream(fout.path()), cmp);
     }
   }
 }
@@ -150,24 +152,24 @@ void sort_test2(TIn in_stream, TOut out_stream, T1 tmp1_stream, T2 tmp2_stream, 
 }
 
 TEST(sorter_tests, sort2) {
-  const file_guard fin(get_file_name("in"), "");
-  const file_guard fout(get_file_name("out"), "");
+  const file_guard fin(get_file_name("in"));
+  const file_guard fout(get_file_name("out"));
 
-  const file_guard ftmp1(get_file_name("tmp1"), "");
-  const file_guard ftmp2(get_file_name("tmp2"), "");
-  const file_guard ftmp3(get_file_name("tmp3"), "");
+  const file_guard ftmp1(get_file_name("tmp1"));
+  const file_guard ftmp2(get_file_name("tmp2"));
+  const file_guard ftmp3(get_file_name("tmp3"));
 
   for (size_t i = 0; i < 10; ++i) {
     for (size_t chunk = 1; chunk < N; chunk <<= 1) {
       for (const auto& cmp : comps) {
         sort_test2(std::stringstream(), std::stringstream(), std::stringstream(), std::stringstream(),
                    std::stringstream(), chunk, cmp);
-        sort_test2(std::fstream(fin.path), std::fstream(fout.path), std::fstream(ftmp1.path), std::fstream(ftmp2.path),
-                   std::fstream(ftmp3.path), chunk, cmp);
+        sort_test2(std::fstream(fin.path()), std::fstream(fout.path()), std::fstream(ftmp1.path()), std::fstream(ftmp2.path()),
+                   std::fstream(ftmp3.path()), chunk, cmp);
 
-        sort_test2(std::stringstream(), std::stringstream(), std::fstream(ftmp1.path), std::fstream(ftmp2.path),
-                   std::fstream(ftmp3.path), chunk, cmp);
-        sort_test2(std::fstream(fin.path), std::fstream(fout.path), std::stringstream(), std::stringstream(),
+        sort_test2(std::stringstream(), std::stringstream(), std::fstream(ftmp1.path()), std::fstream(ftmp2.path()),
+                   std::fstream(ftmp3.path()), chunk, cmp);
+        sort_test2(std::fstream(fin.path()), std::fstream(fout.path()), std::stringstream(), std::stringstream(),
                    std::stringstream(), chunk, cmp);
       }
     }

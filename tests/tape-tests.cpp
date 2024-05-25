@@ -1,5 +1,7 @@
 #include "helpers.h"
 
+#include "../utilities/include/file-guard.h"
+
 constexpr size_t N = 1000;
 constexpr size_t STEP = 31;
 
@@ -79,9 +81,9 @@ TEST(tape_tests, begin_end) {
   for (size_t pos = 0; pos < N; pos += STEP) {
     auto [data, str] = gen_data_pair<N>();
     const file_guard file_guard(get_file_name(), str);
-    beg_end_test(std::fstream(file_guard.path), N, pos);
-    beg_end_test(std::ofstream(file_guard.path), N, pos);
-    beg_end_test(std::ifstream(file_guard.path), N, pos);
+    beg_end_test(std::fstream(file_guard.path()), N, pos);
+    beg_end_test(std::ofstream(file_guard.path()), N, pos);
+    beg_end_test(std::ifstream(file_guard.path()), N, pos);
   }
 }
 
@@ -97,8 +99,8 @@ TEST(tape_tests, initial_pos) {
   for (size_t pos = 0; pos < N; ++pos) {
     pos_test(std::stringstream(str), pos, data);
     pos_test(std::istringstream(str), pos, data);
-    pos_test(std::fstream(file_guard.path), pos, data);
-    pos_test(std::ifstream(file_guard.path), pos, data);
+    pos_test(std::fstream(file_guard.path()), pos, data);
+    pos_test(std::ifstream(file_guard.path()), pos, data);
   }
 }
 
@@ -115,8 +117,8 @@ TEST(tape_tests, offset) {
   for (size_t offset = 0; offset < N; offset += STEP) {
     offset_test(std::stringstream(str), offset, data);
     offset_test(std::istringstream(str), offset, data);
-    offset_test(std::fstream(file_guard.path), offset, data);
-    offset_test(std::ifstream(file_guard.path), offset, data);
+    offset_test(std::fstream(file_guard.path()), offset, data);
+    offset_test(std::ifstream(file_guard.path()), offset, data);
   }
 }
 
@@ -131,7 +133,7 @@ void get_test() {
   {
     auto [data, str] = gen_data_pair<N>();
     const file_guard file_guard(get_file_name(), str);
-    tape::tape tp(FileStream(file_guard.path), N, N);
+    tape::tape tp(FileStream(file_guard.path()), N, N);
     expect_equals(tp, data);
   }
 }
@@ -153,10 +155,10 @@ void set_test() {
   {
     auto [data, str] = gen_data_pair<N>();
     const file_guard file_guard(get_file_name(), str);
-    tape::tape tp(FileStream(file_guard.path), N);
+    tape::tape tp(FileStream(file_guard.path()), N);
     fill(tp, data);
     tp.release();
-    expect_equals(file_guard.path, data);
+    expect_equals(file_guard.path(), data);
   }
 }
 
@@ -267,8 +269,8 @@ TEST(tape_tests, random_access) {
   for (size_t pos = 0; pos < N; pos += STEP) {
     random_access_test<N>(std::stringstream(), pos);
 
-    const file_guard file_guard(get_file_name(), "");
-    random_access_test<N>(std::fstream(file_guard.path), pos);
+    const file_guard file_guard(get_file_name());
+    random_access_test<N>(std::fstream(file_guard.path()), pos);
   }
 }
 
@@ -276,12 +278,12 @@ TEST(tape_tests, file_close_and_open) {
   auto [data, str] = gen_data_pair<N>();
   const file_guard file_guard(get_file_name());
   {
-    tape::tape tp(std::ofstream(file_guard.path), N);
+    tape::tape tp(std::ofstream(file_guard.path()), N);
     fill(tp, data);
     tp.flush();
   }
   {
-    std::ifstream in(file_guard.path);
+    std::ifstream in(file_guard.path());
     in.seekg(N * sizeof(int32_t));
     tape::tape tp(std::move(in), N, N);
     expect_equals(tp, data);
