@@ -28,7 +28,7 @@ int64_t time_checker::checkpoint() {
   return diff;
 }
 
-std::string get_file_name() {
+std::string get_file_name(const std::string& suffix) {
   return std::string("./tmp/tape_") + testing::UnitTest::GetInstance()->current_test_suite()->name() + "_" +
-         testing::UnitTest::GetInstance()->current_test_info()->name() + ".txt";
+         testing::UnitTest::GetInstance()->current_test_info()->name() + "_" + suffix + ".txt";
 }

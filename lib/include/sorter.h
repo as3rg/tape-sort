@@ -8,35 +8,69 @@
 namespace tape {
   namespace helpers {
     /**
-     * Class, which contains the information about the minimum, maximum and size of some subarray.
+     * Class, which contains the information about some subarray.<br>
      */
+    template <typename Compare>
     class subarray_info {
     private:
-      int32_t min_;
-      int32_t max_;
-      size_t size_;
+      Compare compare_;
+      bool equal_ = true;
+      int32_t element_ = 0;
+      size_t size_ = 0;
 
     public:
-      [[nodiscard]] int32_t min() const;
-
-      [[nodiscard]] int32_t max() const;
-
-      [[nodiscard]] size_t size() const;
-
-      subarray_info();
+      /**
+       * @return some element of the subarray. The elements are uniformly distributed.
+       */
+      [[nodiscard]] int32_t element() const {
+        return element_;
+      }
 
       /**
-       * Update the information with new element of the subarray.
+       * @return @code true@endcode if all the elements of the subarray are equal (with given comparator).
        */
-      void update(int32_t value);
+      [[nodiscard]] bool equal() const {
+        return equal_;
+      }
+
+      /**
+       * @return size of the subarray.
+       */
+      [[nodiscard]] size_t size() const {
+        return size_;
+      }
+
+      explicit subarray_info(Compare compare) : compare_(compare) {}
+
+      /**
+       * Update the information with new element of the subarray.<br>
+       */
+      void update(const int32_t value) {
+        static std::mt19937 gen(std::random_device{}());
+        equal_ = equal_ && (size_ == 0 || !compare_(element_, value) && !compare_(value, element_));
+
+        /**
+         * About the probability:
+         * Let it be the i-th call of update() (so the size_ == i - 1).
+         * The element() is updated with the new value with the probability c[i] = 1 / i.
+         * So for each j the element() is equal to the j-th value with probability
+         * p[j] = c[j] * (1 - c[j+1]) * ... * (1 - c[i]) = 1 / i.
+         * Thus after each call of update() the element() is equal to one of the values with the uniform distribution.
+         */
+        if (std::uniform_int_distribution<>(0, size_)(gen) == 0) {
+          element_ = value;
+        }
+        ++size_;
+      }
     };
 
     /**
      * Move the head backward and read the value.
      * @throws io_exception if reading fails
      */
-    template <typename T1>
-    int32_t peek(tape<T1>& current) {
+    template <typename T>
+      requires(tape<T>::READABLE)
+    int32_t peek(tape<T>& current) {
       current.prev();
       return current.get();
     }
@@ -45,8 +79,9 @@ namespace tape {
      * Write the value and move the head forward.
      * @throws io_exception if writing fails
      */
-    template <typename T1>
-    void put(tape<T1>& current, const int32_t value) {
+    template <typename T>
+      requires(tape<T>::WRITABLE)
+    void put(tape<T>& current, const int32_t value) {
       current.set(value);
       current.next();
     }
@@ -59,6 +94,7 @@ namespace tape {
      * @throws io_exception if writing fails
      */
     template <typename T>
+      requires(tape<T>::WRITABLE)
     void vec_to_tape(const std::vector<int32_t>& vec, tape<T>& current) {
       for (const auto v : vec) {
         put(current, v);
@@ -73,6 +109,7 @@ namespace tape {
      * @throws io_exception if reading fails
      */
     template <typename T>
+      requires(tape<T>::READABLE)
     std::vector<int32_t> tape_to_vec(tape<T>& current, size_t size) {
       std::vector<int32_t> vec;
       vec.reserve(size);
@@ -94,13 +131,14 @@ namespace tape {
      * put in @code left@endcode and @code right@endcode
      * @throws io_exception if reading or writing to some of the tapes fails
      */
-    template <typename T1, typename T2, typename T3, typename Compare>
-    std::pair<subarray_info, subarray_info> split(tape<T1>& source, tape<T2>& left,
-                                                  tape<T3>& right, Compare& compare,
-                                                  const int32_t key,
-                                                  const size_t size) {
-      subarray_info left_info;
-      subarray_info right_info;
+    template <typename TSrc, typename TLeft, typename TRight, typename Compare>
+      requires(tape<TSrc>::READABLE && tape<TLeft>::WRITABLE && tape<TRight>::WRITABLE)
+    std::pair<subarray_info<Compare>, subarray_info<Compare>> split(tape<TSrc>& source, tape<TLeft>& left,
+                                                                    tape<TRight>& right, Compare compare,
+                                                                    const int32_t key,
+                                                                    const size_t size) {
+      subarray_info left_info(compare);
+      subarray_info right_info(compare);
 
       for (size_t i = 0; i < size; ++i) {
         const int32_t value = helpers::peek(source);
@@ -125,13 +163,16 @@ namespace tape {
      * If @code info.size() <= chunk_size@endcode, the sorting is performed in memory. Otherwise, recursively.
      * @throws io_exception if reading or writing to some of the tapes fails
      */
-    template <typename T1, typename T2, typename T3, typename T4, typename Compare>
-    void sort_impl(tape<T4>& out, tape<T1>& current, tape<T2>& tmp1, tape<T3>& tmp2,
-                   const subarray_info& info, const size_t chunk_size,
-                   Compare& compare) {
+    template <typename TOut, typename T1, typename T2, typename T3, typename Compare>
+      requires(tape<TOut>::WRITABLE &&
+               tape<T1>::BIDIRECTIONAL && tape<T2>::BIDIRECTIONAL &&
+               tape<T3>::BIDIRECTIONAL)
+    void sort_impl(tape<TOut>& out, tape<T1>& current, tape<T2>& tmp1, tape<T3>& tmp2,
+                   const subarray_info<Compare>& info, const size_t chunk_size,
+                   Compare compare) {
       if (info.size() == 0)
         return;
-      if (info.min() == info.max()) {
+      if (info.equal()) {
         for (size_t i = 0; i < info.size(); ++i) {
           helpers::put(out, helpers::peek(current));
         }
@@ -144,12 +185,7 @@ namespace tape {
         return;
       }
 
-      static std::mt19937 gen(std::random_device{}());
-
-      const int32_t mid =
-          std::uniform_int_distribution(info.min(), info.max())(gen);
-      auto [left_info, right_info] =
-          split<>(current, tmp1, tmp2, compare, mid, info.size());
+      auto [left_info, right_info] = split<>(current, tmp1, tmp2, compare, info.element(), info.size());
       sort_impl(out, tmp1, current, tmp2, left_info, chunk_size, compare);
       sort_impl(out, tmp2, current, tmp1, right_info, chunk_size, compare);
     }
@@ -159,17 +195,18 @@ namespace tape {
    * Put elements from @code in@endcode to @code out@endcode in the sorted order. <br>
    * @code in@endcode is not changed after the call.<br>
    * @code out@endcode head is after the last elements put after the call.<br>
-   * The function uses as much allocated memory as the @code in@endcode data occupies.
+   * The function uses as much allocated memory as the @code in@endcode data occupies.<br>
+   * The sort is not stable.
    *
    * @param in tape with elements to sort. Can be read-only. The head should be at the beginning of the data
    * @param out tape to write the sorted elements. Can be write-only. The head should be at the first position to write
    * @param compare comparator which defines the ordering
    * @throws io_exception if reading or writing to some of the tapes fails
    */
-  template <typename T_IN, typename T_OUT,
+  template <typename TIn, typename TOut,
             typename Compare = std::less<int32_t>>
-    requires(tape<T_IN>::READABLE && tape<T_OUT>::WRITABLE)
-  void sort(tape<T_IN>& in, tape<T_OUT>& out, Compare compare = Compare()) {
+    requires(tape<TIn>::READABLE && tape<TOut>::WRITABLE)
+  void sort(tape<TIn>& in, tape<TOut>& out, Compare compare = Compare()) {
     std::vector<int32_t> vec;
     size_t size = 0;
     while (!in.is_end()) {
@@ -182,7 +219,7 @@ namespace tape {
     in.seek(-size);
 
     std::sort(vec.begin(), vec.end(), compare);
-    vec_to_tape(vec, out);
+    helpers::vec_to_tape(vec, out);
   }
 
   /**
@@ -191,7 +228,8 @@ namespace tape {
    * @code tmp1@endcode, @code tmp2@endcode and @code tmp3@endcode data before the head and the head position are not changed after the call.
    * The data after the head can be lost.<br>
    * @code out@endcode head is after the last elements put after the call.<br>
-   * The function uses no more than @code chunk_size * sizeof(int32_t)@endcode bytes of allocated memory.
+   * The function uses no more than @code chunk_size * sizeof(int32_t)@endcode bytes of allocated memory.<br>
+   * The sort is not stable.
    *
    * @param in tape with elements to sort. Can be read-only. The head should be at the beginning of the data
    * @param out tape to write the sorted elements. Can be write-only. The head should be at the first position to write
@@ -205,14 +243,14 @@ namespace tape {
    * @param compare comparator which defines the ordering
    * @throws io_exception if reading or writing to some of the tapes fails
    */
-  template <typename T_IN, typename T_OUT, typename T1, typename T2, typename T3,
+  template <typename TIn, typename TOut, typename T1, typename T2, typename T3,
             typename Compare = std::less<int32_t>>
-    requires(tape<T_IN>::READABLE && tape<T_OUT>::WRITABLE &&
+    requires(tape<TIn>::READABLE && tape<TOut>::WRITABLE &&
              tape<T1>::BIDIRECTIONAL && tape<T2>::BIDIRECTIONAL &&
              tape<T3>::BIDIRECTIONAL)
-  void sort(tape<T_IN>& in, tape<T_OUT>& out, tape<T1>& tmp1, tape<T2>& tmp2,
+  void sort(tape<TIn>& in, tape<TOut>& out, tape<T1>& tmp1, tape<T2>& tmp2,
             tape<T3>& tmp3, size_t chunk_size = 0, Compare compare = Compare()) {
-    helpers::subarray_info info;
+    helpers::subarray_info<Compare> info(compare);
 
     while (!in.is_end()) {
       const int32_t value = in.get();

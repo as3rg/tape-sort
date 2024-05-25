@@ -40,7 +40,7 @@ std::string get_string(const std::array<int32_t, N>& data) {
 template <size_t N>
 auto gen_data() {
   static std::mt19937 gen(std::random_device{}());
-  static std::uniform_int_distribution<> distribution;
+  static std::uniform_int_distribution distribution(std::numeric_limits<int32_t>::min());
 
   std::array<int32_t, N> data{};
   for (int32_t i = 0; i < N; ++i) {
@@ -92,4 +92,4 @@ void fill(tape::tape<Stream>& tp, const std::array<int32_t, N>& data, const size
   fill(tp, data, offset, N - offset);
 }
 
-std::string get_file_name();
+std::string get_file_name(const std::string& suffix = "");

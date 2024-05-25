@@ -1,7 +1,5 @@
 #include "helpers.h"
 
-#include <gtest/gtest.h>
-
 constexpr size_t N = 1000;
 constexpr size_t STEP = 31;
 
