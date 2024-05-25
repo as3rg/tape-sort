@@ -6,13 +6,19 @@
 #include <fstream>
 #include <iostream>
 
-constexpr std::string CALL_FORMAT = "tape-sort <input-file> <output-file> [input-tape-size] [memory-limit]";
-constexpr std::string CONFIG_PATH = "config.txt";
+const std::string CALL_FORMAT = "tape-sort <input-file> <output-file> [input-tape-size] [memory-limit]";
+const std::string CONFIG_PATH = "config.txt";
 
 bool parse_delays(tape::delay_config& config) {
+  if (!std::filesystem::exists(CONFIG_PATH)) return true;
   std::ifstream fconfig(CONFIG_PATH);
+  if (std::filesystem::is_directory(CONFIG_PATH)) {
+    std::cerr << "config file cannot be a directory" << std::endl;
+    return false;
+  }
   if (!fconfig) {
-    return true;
+    std::cerr << "error opening config file" << std::endl;
+    return false;
   }
   for (std::string line; std::getline(fconfig, line);) {
     std::stringstream linestream(line);
@@ -21,7 +27,7 @@ bool parse_delays(tape::delay_config& config) {
     size_t value;
     linestream >> key >> value;
     if (!linestream) {
-      std::cerr << "incorrect config file" << std::endl;
+      std::cerr << "incorrect config file: " << line << std::endl;
       return false;
     }
     if (key == "read-delay") {
@@ -42,10 +48,14 @@ bool parse_delays(tape::delay_config& config) {
 }
 
 bool get_uint_param(const std::string& string, size_t& N, const std::string& param_name) {
+  if (string.starts_with("-")) {
+    std::cerr << "invalid " << param_name << ". non-negative integer expected" << std::endl;
+    return false;
+  }
   try {
     N = std::stoull(string);
   } catch (std::invalid_argument& e) {
-    std::cerr << "invalid " << param_name << ". unsigned integer expected: " << e.what() << std::endl;
+    std::cerr << "invalid " << param_name << ". non-negative integer expected: " << e.what() << std::endl;
     return false;
   } catch (std::out_of_range& e) {
     std::cerr << param_name << " is out of range: " << e.what() << std::endl;
@@ -62,40 +72,44 @@ std::string get_tmp_path() {
 }
 
 int main(const int argc, char* argv[]) {
-  if (argc > 4) {
+  if (argc > 5) {
     std::cerr << "too many arguments:" << std::endl << CALL_FORMAT << std::endl;
     return 1;
   }
-  if (argc < 2) {
+  if (argc < 3) {
     std::cerr << "the input and output files expected:" << std::endl << CALL_FORMAT << std::endl;
     return 1;
   }
 
-  std::ifstream fin(argv[0]);
+  std::ifstream fin(argv[1]);
   if (!fin) {
     std::cerr << "error opening the input file" << std::endl;
     return 1;
   }
 
-  std::ofstream fout(argv[1], std::ios_base::out | std::ios_base::trunc);
+  std::ofstream fout(argv[2], std::ios_base::out | std::ios_base::trunc);
   if (!fout) {
     std::cerr << "error opening the output file" << std::endl;
     return 1;
   }
 
   size_t N;
-  if (argc > 2) {
-    if (!get_uint_param(argv[2], N, "input tape size"))
+  if (argc > 3) {
+    if (!get_uint_param(argv[3], N, "input tape size"))
       return 1;
   } else {
     fin.seekg(0, std::ios_base::end);
-    N = fin.tellg() / sizeof(int32_t);
+    N = fin.tellg();
+    if (N % 4 != 0) {
+      std::cout << "input data can't be split by integers. the tail will be discarded" << std::endl;
+    }
+    N /= sizeof(int32_t);
     fin.seekg(0, std::ios_base::beg);
   }
 
   size_t M = 0;
-  if (argc >= 4) {
-    if (!get_uint_param(argv[3], N, "memory limit"))
+  if (argc > 4) {
+    if (!get_uint_param(argv[4], M, "memory limit"))
       return 1;
   }
 
@@ -131,6 +145,9 @@ int main(const int argc, char* argv[]) {
     }
   } catch (tape::io_exception& e) {
     std::cerr << "i/o error occurred while working with the tapes: " << e.what() << std::endl;
+    return 1;
+  } catch (std::filesystem::filesystem_error& e) {
+    std::cerr << "error creating temporary file: " << e.what() << std::endl;
     return 1;
   }
 
