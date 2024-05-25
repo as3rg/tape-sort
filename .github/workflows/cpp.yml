@@ -1,0 +1,42 @@
+name: C++ CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  formatting-check:
+    name: Formatting check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run clang-format
+        uses: jidicula/clang-format-action@v4.13.0
+        with:
+          clang-format-version: '17'
+          check-path: '.'
+  gtest:
+    name: Running GTest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: microsoft/vcpkg
+          path: vcpkg
+      - name: vcpkg
+        run: vcpkg/bootstrap-vcpkg.sh -disableMetrics
+      - name: tests
+        run: |
+          make tests VCPKG="${{ github.workspace }}"
+      - name: clean
+        if: always()
+        run: make clean
